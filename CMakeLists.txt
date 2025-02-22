@@ -35,7 +35,9 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(esp esp.c lib/ssd1306.c)
+add_executable(esp 
+esp.c 
+lib/ssd1306.c)
 
 pico_set_program_name(esp "esp")
 pico_set_program_version(esp "0.1")
