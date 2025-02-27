@@ -167,7 +167,7 @@ void exibir_menu() {
   for (int i = 0; i < tamanho_menu; i++) {
     if (i == (estado_menu == MENU_PRINCIPAL ? menu_selecionado : submenu_selecionado)) {
       sprintf(linha, "%s", menu_atual[i]);
-      ssd1306_draw_char(&display, 1, y_offset, '>'); // Desenha o indicador de seleção
+      ssd1306_hline(&display, 0, 10, y_offset, 1); // Desenha o indicador de seleção
       ssd1306_draw_string(&display, linha, x_offset, y_offset); // Desenha o texto do menu
     } else {
       sprintf(linha, " %s", menu_atual[i]);
@@ -347,19 +347,20 @@ int main(){
       if (estado_menu == MENU_PRINCIPAL) {
           if (vrx > 2400) { // Para baixo
               menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
-          } else if (vrx < 1500) { // Para cima
+          } else if (vrx < 1000) { // Para cima
               menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
           }
+          sleep_ms(300); // Debounce
       } else {
           // Navegação nos submenus (cores e sons)
           if (vrx > 2400) { // Para baixo
               submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
-          } else if (vrx < 1500) { // Para cima
+          } else if (vrx < 1000) { // Para cima
               submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
-          }
+            }
+            sleep_ms(300); // Debounce
       }
       exibir_menu();
-      sleep_ms(200); // Debounce
   }
 
       if (alarme_ligado){
