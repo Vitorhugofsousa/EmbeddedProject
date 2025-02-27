@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "hardware/gpio.h"
@@ -9,6 +11,7 @@
 #include "lib/ssd1306.h"
 #include "hardware/pio.h"
 #include "pico/bootrom.h"
+#include "esp.pio.h"
 
 #define BOTAO_A 5 //pino saida botao a
 #define BOTAO_B 6 //pino saida botao b
@@ -26,6 +29,17 @@
 #define display_address 0x3C //endereço do display
 #define gpio_buzzer 21 //pino buzzer A
 #define microfone 28 //pino do microfone
+
+// Variáveis globais
+volatile bool alarme_ligado = false;
+
+int cor_alarme = 0; // 0: vermelho, 1: verde, 2: azul
+int som_alarme = 0; // 0: agudo, 1: grave
+uint actual_time = 0;
+ssd1306_t display;
+PIO pio = pio0;
+uint sm = 0;
+uint valor_led;
 
 // rotina para definição da intensidade de cores do led
 uint matrix_rgb(float r, float g, float b){
@@ -55,8 +69,7 @@ void desenho_pio(double *desenho, uint32_t valor_led, PIO pio, uint sm, double r
   };
 }
 
-void acionar_buzzer(int interval)
-{
+void acionar_buzzer(int interval){
   gpio_set_function(gpio_buzzer, GPIO_FUNC_PWM);      // Configura pino como saída PWM
     uint slice_num = pwm_gpio_to_slice_num(gpio_buzzer); // Obter o slice do PWM
 
@@ -70,8 +83,126 @@ void acionar_buzzer(int interval)
     pwm_set_enabled(slice_num, false);                 // Desativar o PWM  
 }
 
+// Função para ler o nível do microfone
+int ler_microfone() {
+  adc_select_input(3); // Pino do microfone (ADC3)
+  return adc_read();
+}
+
+// Função para exibir mensagem no display
+void exibir_mensagem(const char *mensagem) {
+  ssd1306_fill(&display, false);
+  ssd1306_draw_string(&display, 0, 0, *mensagem);
+  ssd1306_send_data(&display);
+}
+
+
+// Função de callback para os botões (interrupção)
+void callback_abtn(uint gpio, uint32_t events) {
+  uint time = to_ms_since_boot(get_absolute_time());
+  if (time - actual_time > 300) { //DEBOUNCE: aplicado em todos os botões
+      actual_time = time; // Atualiza o tempo da última ação
+      if (gpio == BOTAO_A){
+          
+          alarme_ligado = !alarme_ligado;
+          printf("%s\n", alarme_ligado ? "Alarme Habilitado" : "Alarme Desabilitado");
+      }
+  }
+  
+}
+
+int ssd1306_get_string_width(ssd1306_t *display, const char *str) {
+  int width = 0;
+  for (size_t i = 0; i < strlen(str); i++) {
+      // Assuming each character is 8 pixels wide.  Adjust if your font is different.
+      width += 8;  
+  }
+  return width;
+}
+
+// Estruturas dos menus
+const char *menu_principal[] = {
+  "COR DO ALARME",
+  "SOM DO AlARME"
+};
+
+const char *menu_cores[] = {
+  "VERMELHO",
+  "VERDE",
+  "AZUL"
+};
+
+const char *menu_sons[] = {
+  "AGUDO",
+  "GRAVE"
+};
+
+int menu_selecionado = 0;
+int submenu_selecionado = 0;
+enum {MENU_PRINCIPAL, MENU_COR, MENU_SOM} estado_menu = MENU_PRINCIPAL;
+
+void exibir_menu() {
+  ssd1306_fill(&display, false);
+  const char **menu_atual; // Ponteiro para o array de strings do menu atual
+  int tamanho_menu;
+
+  switch (estado_menu) {
+      case MENU_PRINCIPAL:
+          menu_atual = menu_principal;
+          tamanho_menu = sizeof(menu_principal) / sizeof(menu_principal[0]);
+          break;
+      case MENU_COR:
+          menu_atual = menu_cores;
+          tamanho_menu = sizeof(menu_cores) / sizeof(menu_cores[0]);
+          break;
+      case MENU_SOM:
+          menu_atual = menu_sons;
+          tamanho_menu = sizeof(menu_sons) / sizeof(menu_sons[0]);
+          break;
+  }
+
+  int y_offset = 10; // Ajuste a posição vertical inicial
+
+  for (int i = 0; i < tamanho_menu; i++) {
+    char linha[20];
+    if (i == (estado_menu == MENU_PRINCIPAL ? menu_selecionado : submenu_selecionado)) {
+        sprintf(linha, "> %s", menu_atual[i]);
+    } else {
+        sprintf(linha, "  %s", menu_atual[i]);
+    }
+    
+
+    int largura_linha = ssd1306_get_string_width(&display, linha); // Obtém largura da string
+    int x_offset = (128 - largura_linha) / 2; // Centraliza a linha
+
+    for (int j = 0; j < strlen(linha); j++) {
+        ssd1306_draw_char(&display, x_offset, y_offset, (uint8_t)linha[j]);
+        x_offset += 8; // Espaçamento fixo (ajuste se necessário)
+    }
+    y_offset += 10;
+}
+
+ssd1306_send_data(&display);
+}
+
+
+void configurar_cor() {
+  estado_menu = MENU_COR;
+  submenu_selecionado = 0;
+  exibir_menu();
+}
+
+void configurar_som() {
+  estado_menu = MENU_SOM;
+  submenu_selecionado = 0;
+  exibir_menu();
+}
+
+
 
 void funcionamento_on() {
+  ssd1306_fill(&display, false);
+ssd1306_send_data(&display);
 gpio_put(LED_PIN_GREEN, true);
 sleep_ms(1000);
 gpio_put(LED_PIN_GREEN,false);
@@ -91,13 +222,159 @@ double acender_leds[25] = {1.0, 1.0, 1.0, 1.0, 1.0, // Acender LEDs da matriz
     1.0, 1.0, 1.0, 1.0, 1.0};    
 
 
-
 int main(){
-    stdio_init_all();
-    gpio_init(LED_PIN_GREEN);
-    gpio_set_dir(LED_PIN_GREEN, GPIO_OUT);
+  PIO pio = pio0;
+  bool frequenciaClock;
+  uint16_t i;
+  uint valor_led;
+  float r = 0.0, b = 0.0, g = 0.0;
+
+ // Inicialização
+ stdio_init_all();
+ //inicialização e configuração LED Verde
+ gpio_init(LED_PIN_GREEN);
+ gpio_set_dir(LED_PIN_GREEN, GPIO_OUT);
+ gpio_put(LED_PIN_GREEN, false); 
+ //inicialização e configuração LED Vermelho
+ gpio_init(LED_PIN_RED);
+ gpio_set_dir(LED_PIN_RED, GPIO_OUT);
+ gpio_put(LED_PIN_RED, false); 
+    //inicialização e configuração LED Azul
+    gpio_init(LED_PIN_BLUE);
+    gpio_set_dir(LED_PIN_BLUE, GPIO_OUT);
+    gpio_put(LED_PIN_BLUE, false);
+    //inicialização e configuração Botão A
+    gpio_init(BOTAO_A);
+    gpio_set_dir(BOTAO_A, GPIO_IN);
+    gpio_pull_up(BOTAO_A);
+    //inicialização e configuração Botão B
+    gpio_init(BOTAO_B);
+    gpio_set_dir(BOTAO_B, GPIO_IN);
+    gpio_pull_up(BOTAO_B);
+    //inicialização e configuração SW_PIN
+    gpio_set_dir(SW_PIN, GPIO_IN);
+    gpio_pull_up(SW_PIN); 
+    adc_gpio_init(VRX_PIN); 
+    adc_gpio_init(VRY_PIN); 
+    gpio_init(SW_PIN);
+
+    frequenciaClock = set_sys_clock_khz(128000, false); // frequência de clock
+    gpio_init(matriz);
+    gpio_set_dir(matriz, GPIO_OUT);
+
     
+    //inicialização a comunição I2C
+    i2c_init(I2C_PORT, 400 * 1000);
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
+    
+    //Inicializa o display SSD1306
+    ssd1306_init(&display, WIDTH, HEIGHT, false, display_address, I2C_PORT);
+    ssd1306_config(&display);
+    ssd1306_send_data(&display);
+    ssd1306_fill(&display, false);
+    ssd1306_send_data(&display);
+    
+    adc_init();
+    adc_gpio_init(microfone);
+
+  
+  exibir_menu();
+  gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
+  gpio_set_irq_enabled_with_callback(BOTAO_B, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
+  gpio_set_irq_enabled_with_callback(SW_PIN, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
+    
+  // configurações da PIO
+  uint offset = pio_add_program(pio, &pio_matrix_program);
+  uint sm = pio_claim_unused_sm(pio, true);
+  pio_matrix_program_init(pio, sm, offset, matriz);
+  
     while (true){
-        funcionamento_on();
+  
+      if (!alarme_ligado && !gpio_get(BOTAO_B)) {
+        printf("Selecionando opção");
+        switch (estado_menu) {
+            case MENU_PRINCIPAL:
+                switch (menu_selecionado) {
+                    case 0: // Cor do Alarme
+                        estado_menu = MENU_COR;
+                        break;
+                    case 1: // Som do Alarme
+                        estado_menu = MENU_SOM;
+                        break;
+                }
+                break;
+            case MENU_COR:
+                // Lógica para selecionar a cor (ex: cor_alarme = submenu_selecionado;)
+                cor_alarme = submenu_selecionado;
+                estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
+                break;
+            case MENU_SOM:
+                // Lógica para selecionar o som (ex: som_alarme = submenu_selecionado;)
+                som_alarme = submenu_selecionado;
+                estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
+                break;
+        }
+        exibir_menu();
+        sleep_ms(200); // Debounce
     }
-}
+    if (!alarme_ligado && !gpio_get(SW_PIN)) {
+      printf("Retrocendendo");
+      switch (estado_menu) {
+          case MENU_COR:
+          case MENU_SOM:
+              estado_menu = MENU_PRINCIPAL;
+              break;
+      }
+      exibir_menu();
+      sleep_ms(200); // Debounce
+  }
+    // Controle via joystick (com alarme desligado)
+    if (!alarme_ligado) {
+      // Ler posição do joystick
+      adc_select_input(0);
+      int vrx = adc_read();
+      adc_select_input(1);
+      int vry = adc_read();
+
+      // Navegação no menu principal
+      if (estado_menu == MENU_PRINCIPAL) {
+          if (vry > 2000) { // Para baixo
+              menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
+          } else if (vry < 1000) { // Para cima
+              menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
+          }
+      } else {
+          // Navegação nos submenus (cores e sons)
+          if (vry > 2000) { // Para baixo
+              submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
+          } else if (vry < 1000) { // Para cima
+              submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
+          }
+      }
+      exibir_menu();
+      sleep_ms(200); // Debounce
+  }
+      if (alarme_ligado){
+        funcionamento_on();
+
+        if (alarme_ligado ) { // Limiar de sensibilidade do microfone
+          // Disparar alarme
+          while (alarme_ligado){
+            desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
+            acionar_buzzer(200);
+            sleep_ms(200);
+            desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
+            sleep_ms(200);
+          }
+          
+        }
+      }
+      
+      
+  
+    }
+  }
+  
