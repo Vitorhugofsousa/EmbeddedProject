@@ -72,14 +72,21 @@ void desenho_pio(double *desenho, uint32_t valor_led, PIO pio, uint sm, double r
 void acionar_buzzer(int interval){
   gpio_set_function(gpio_buzzer, GPIO_FUNC_PWM);      // Configura pino como saída PWM
     uint slice_num = pwm_gpio_to_slice_num(gpio_buzzer); // Obter o slice do PWM
-
     pwm_set_clkdiv(slice_num, 125.0);                  
-    pwm_set_wrap(slice_num, 500);                      
+    pwm_set_wrap(slice_num, 200);                      
     pwm_set_gpio_level(gpio_buzzer, 150);              
     pwm_set_enabled(slice_num, true);                  // Ativar o PWM
-
     sleep_ms(interval);                                    // Manter o som pelo intervalo
-
+    pwm_set_enabled(slice_num, false);                 // Desativar o PWM  
+}
+void acionar_buzzer2(int interval){
+  gpio_set_function(gpio_buzzer, GPIO_FUNC_PWM);      // Configura pino como saída PWM
+    uint slice_num = pwm_gpio_to_slice_num(gpio_buzzer); // Obter o slice do PWM
+    pwm_set_clkdiv(slice_num, 125.0);                  
+    pwm_set_wrap(slice_num, 800);                      
+    pwm_set_gpio_level(gpio_buzzer, 150);              
+    pwm_set_enabled(slice_num, true);                  // Ativar o PWM
+    sleep_ms(interval);                                    // Manter o som pelo intervalo
     pwm_set_enabled(slice_num, false);                 // Desativar o PWM  
 }
 
@@ -369,8 +376,36 @@ int main(){
         if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone
           // Disparar alarme
           while (alarme_ligado){
+            switch (cor_alarme){
+            case 0:
             desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
-            acionar_buzzer(200);
+              break;
+            case 1:
+            desenho_pio(acender_leds, valor_led, pio, sm, 0.0, 1.0, 0.0); // LEDs verdes
+              break;
+            case 2:
+            desenho_pio(acender_leds, valor_led, pio, sm, 0.0, 0.0, 1.0); // LEDs azuis
+              break;
+            
+            default:
+            desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
+              break;
+            }
+
+            switch (som_alarme){
+            case 0:
+              acionar_buzzer(200);
+              break;
+              
+              case 1:
+              acionar_buzzer2(200);
+              break;
+              
+              default:
+              acionar_buzzer(200);
+              break;
+            }
+
             sleep_ms(200);
             desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
             sleep_ms(200);
