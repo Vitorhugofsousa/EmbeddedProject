@@ -86,7 +86,7 @@ void acionar_buzzer(int interval){
 // Função para ler o nível do microfone
 int ler_microfone() {
   adc_select_input(2); // Pino do microfone (ADC2)
-  uint16_t mic_value = adc_read(); // Lê o ADC
+  return adc_read();// Lê o ADC
 }
 
 // Função para exibir mensagem no display
@@ -161,7 +161,7 @@ void exibir_menu() {
           break;
   }
 
-  int y_offset = 10; // Ajuste a posição vertical inicial
+  int y_offset = 1; // Ajuste a posição vertical inicial
 
   for (int i = 0; i < tamanho_menu; i++) {
     char linha[20];
@@ -179,7 +179,7 @@ void exibir_menu() {
         ssd1306_draw_char(&display, x_offset, y_offset, (uint8_t)linha[j]);
         x_offset += 8; // Espaçamento fixo (ajuste se necessário)
     }
-    y_offset += 10;
+    y_offset += 8;
 }
 
 ssd1306_send_data(&display);
@@ -345,22 +345,23 @@ int main(){
 
       // Navegação no menu principal
       if (estado_menu == MENU_PRINCIPAL) {
-          if (vry > 2000) { // Para baixo
+          if (vrx > 2400) { // Para baixo
               menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
-          } else if (vry < 1000) { // Para cima
+          } else if (vrx < 1500) { // Para cima
               menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
           }
       } else {
           // Navegação nos submenus (cores e sons)
-          if (vry > 2000) { // Para baixo
+          if (vrx > 2400) { // Para baixo
               submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
-          } else if (vry < 1000) { // Para cima
+          } else if (vrx < 1500) { // Para cima
               submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
           }
       }
       exibir_menu();
       sleep_ms(200); // Debounce
   }
+
       if (alarme_ligado){
         funcionamento_on();
 
