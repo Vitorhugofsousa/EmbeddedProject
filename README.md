@@ -51,4 +51,4 @@ O objetivo deste projeto é criar um sistema de alarme residencial simples e efi
 
 
 ## Contribuições
-
+<img src="u7c1_banner.png">
