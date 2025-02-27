@@ -340,22 +340,22 @@ int main(){
       // Ler posição do joystick
       adc_select_input(0);
       int vrx = adc_read();
-      adc_select_input(1);
-      int vry = adc_read();
+      uint16_t vrx_inverter = 4095 - vrx;
+
 
       // Navegação no menu principal
       if (estado_menu == MENU_PRINCIPAL) {
-          if (vrx > 2400) { // Para baixo
+          if (vrx_inverter > 2400) { // Para baixo
               menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
-          } else if (vrx < 1000) { // Para cima
+          } else if (vrx_inverter < 1000) { // Para cima
               menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
           }
           sleep_ms(300); // Debounce
       } else {
           // Navegação nos submenus (cores e sons)
-          if (vrx > 2400) { // Para baixo
+          if (vrx_inverter> 2400) { // Para baixo
               submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
-          } else if (vrx < 1000) { // Para cima
+          } else if (vrx_inverter < 1000) { // Para cima
               submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
             }
             sleep_ms(300); // Debounce
