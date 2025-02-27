@@ -1,4 +1,4 @@
-# Sistema de Alarme com Microfone e Matriz de LEDs
+# Sistema de Alarme com RasPberry Pi Pico W
 
 Este projeto implementa um sistema de alarme utilizando um microfone para detecção de som e uma matriz de LEDs para indicação visual. O sistema é controlado por um microcontrolador Raspberry Pi Pico e inclui funcionalidades como menus interativos em um display OLED e configurações de cor e som do alarme.
 
