@@ -85,8 +85,8 @@ void acionar_buzzer(int interval){
 
 // Função para ler o nível do microfone
 int ler_microfone() {
-  adc_select_input(3); // Pino do microfone (ADC3)
-  return adc_read();
+  adc_select_input(2); // Pino do microfone (ADC2)
+  uint16_t mic_value = adc_read(); // Lê o ADC
 }
 
 // Função para exibir mensagem no display
@@ -228,6 +228,8 @@ int main(){
   uint16_t i;
   uint valor_led;
   float r = 0.0, b = 0.0, g = 0.0;
+  const uint limiar_1 = 2000;     // Limiar para o LED vermelho
+  const uint limiar_2 = 2400;    // Limiar para o LED azul
 
  // Inicialização
  stdio_init_all();
@@ -291,6 +293,8 @@ int main(){
   uint sm = pio_claim_unused_sm(pio, true);
   pio_matrix_program_init(pio, sm, offset, matriz);
   
+  const uint amostras_por_segundo = 8000; // Frequência de amostragem (8 kHz)
+  uint64_t intervalo_us = 1000000 / amostras_por_segundo;
     while (true){
   
       if (!alarme_ligado && !gpio_get(BOTAO_B)) {
@@ -360,7 +364,7 @@ int main(){
       if (alarme_ligado){
         funcionamento_on();
 
-        if (alarme_ligado ) { // Limiar de sensibilidade do microfone
+        if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone
           // Disparar alarme
           while (alarme_ligado){
             desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
@@ -369,7 +373,7 @@ int main(){
             desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
             sleep_ms(200);
           }
-          
+          sleep_us(intervalo_us);
         }
       }
       
