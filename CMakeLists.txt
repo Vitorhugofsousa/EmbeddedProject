@@ -43,8 +43,11 @@ pico_set_program_name(esp "esp")
 pico_set_program_version(esp "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(esp 1)
+pico_enable_stdio_uart(esp 0)
 pico_enable_stdio_usb(esp 1)
+
+
+pico_generate_pio_header(esp ${CMAKE_CURRENT_LIST_DIR}/esp.pio)
 
 # Add the standard library to the build
 target_link_libraries(esp
