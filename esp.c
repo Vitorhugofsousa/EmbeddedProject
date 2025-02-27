@@ -161,28 +161,23 @@ void exibir_menu() {
           break;
   }
 
-  int y_offset = 1; // Ajuste a posição vertical inicial
-
+  char linha[20];
+  int y_offset = 5; // Ajuste a posição vertical inicial
+  int x_offset = (128 - (strlen(linha) * 54)) / 2; // Centraliza a string
   for (int i = 0; i < tamanho_menu; i++) {
-    char linha[20];
     if (i == (estado_menu == MENU_PRINCIPAL ? menu_selecionado : submenu_selecionado)) {
-        sprintf(linha, "> %s", menu_atual[i]);
+      sprintf(linha, "%s", menu_atual[i]);
+      ssd1306_draw_char(&display, 1, y_offset, '>'); // Desenha o indicador de seleção
+      ssd1306_draw_string(&display, linha, x_offset, y_offset); // Desenha o texto do menu
     } else {
-        sprintf(linha, "  %s", menu_atual[i]);
+      sprintf(linha, " %s", menu_atual[i]);
+      ssd1306_draw_string(&display, linha, x_offset, y_offset); // Desenha o texto do menu
     }
-    
-
-    //int largura_linha = ssd1306_get_string_width(&display, linha); // Obtém largura da string
-    //int x_offset = (128 - largura_linha) / 2; // Centraliza a linha
-    int x_offset = (128 - (strlen(linha) * 8)) / 2; // Centraliza a string
-    for (int j = 0; j < strlen(linha); j++) {
-      ssd1306_draw_string(&display,linha, x_offset, y_offset );
-        x_offset += 0; // Espaçamento fixo
-    }
+    x_offset += 0;
     y_offset += 15;
-}
+    }
 
-ssd1306_send_data(&display);
+    ssd1306_send_data(&display);
 }
 
 
@@ -300,8 +295,8 @@ int main(){
   
   const uint amostras_por_segundo = 8000; // Frequência de amostragem (8 kHz)
   uint64_t intervalo_us = 1000000 / amostras_por_segundo;
+    
     while (true){
-  
       if (!alarme_ligado && !gpio_get(BOTAO_B)) {
         printf("Selecionando opção");
         switch (estado_menu) {
