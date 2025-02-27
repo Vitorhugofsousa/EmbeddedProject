@@ -92,7 +92,7 @@ int ler_microfone() {
 // Função para exibir mensagem no display
 void exibir_mensagem(const char *mensagem) {
   ssd1306_fill(&display, false);
-  ssd1306_draw_string(&display, 0, 1, *mensagem);
+  ssd1306_draw_string(&display, 0, 0, *mensagem);
   ssd1306_send_data(&display);
 }
 
@@ -112,9 +112,10 @@ void callback_abtn(uint gpio, uint32_t events) {
 }
 
 int ssd1306_get_string_width(ssd1306_t *display, const char *str) {
-  int width = 128;
+  int width = 8;
   for (size_t i = 0; i < strlen(str); i++) {
-      width += 20;  
+      // Assuming each character is 8 pixels wide.  Adjust if your font is different.
+      width += 8;  
   }
   return width;
 }
@@ -161,6 +162,7 @@ void exibir_menu() {
   }
 
   int y_offset = 1; // Ajuste a posição vertical inicial
+
   for (int i = 0; i < tamanho_menu; i++) {
     char linha[20];
     if (i == (estado_menu == MENU_PRINCIPAL ? menu_selecionado : submenu_selecionado)) {
@@ -168,8 +170,11 @@ void exibir_menu() {
     } else {
         sprintf(linha, "  %s", menu_atual[i]);
     }
+    
 
-    int x_offset = (128 - (strlen(linha) * 10)) / 2; // Centraliza a string
+    //int largura_linha = ssd1306_get_string_width(&display, linha); // Obtém largura da string
+    //int x_offset = (128 - largura_linha) / 2; // Centraliza a linha
+    int x_offset = (128 - (strlen(linha) * 8)) / 2; // Centraliza a string
     for (int j = 0; j < strlen(linha); j++) {
       ssd1306_draw_string(&display,linha, x_offset, y_offset );
         x_offset += 0; // Espaçamento fixo
@@ -179,7 +184,6 @@ void exibir_menu() {
 
 ssd1306_send_data(&display);
 }
-
 
 
 void configurar_cor() {
@@ -296,8 +300,10 @@ int main(){
   
   const uint amostras_por_segundo = 8000; // Frequência de amostragem (8 kHz)
   uint64_t intervalo_us = 1000000 / amostras_por_segundo;
-  while (true) {
-    if (!alarme_ligado && !gpio_get(BOTAO_B)) {
+    while (true){
+  
+      if (!alarme_ligado && !gpio_get(BOTAO_B)) {
+        printf("Selecionando opção");
         switch (estado_menu) {
             case MENU_PRINCIPAL:
                 switch (menu_selecionado) {
@@ -310,44 +316,74 @@ int main(){
                 }
                 break;
             case MENU_COR:
+                // Lógica para selecionar a cor (ex: cor_alarme = submenu_selecionado;)
                 cor_alarme = submenu_selecionado;
-                estado_menu = MENU_PRINCIPAL;
+                estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
                 break;
             case MENU_SOM:
+                // Lógica para selecionar o som (ex: som_alarme = submenu_selecionado;)
                 som_alarme = submenu_selecionado;
-                estado_menu = MENU_PRINCIPAL;
+                estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
                 break;
         }
         exibir_menu();
         sleep_ms(200); // Debounce
     }
+    if (!alarme_ligado && !gpio_get(SW_PIN)) {
+      printf("Retrocendendo");
+      switch (estado_menu) {
+          case MENU_COR:
+          case MENU_SOM:
+              estado_menu = MENU_PRINCIPAL;
+              break;
+      }
+      exibir_menu();
+      sleep_ms(200); // Debounce
+  }
+    // Controle via joystick (com alarme desligado)
+    if (!alarme_ligado) {
+      // Ler posição do joystick
+      adc_select_input(0);
+      int vrx = adc_read();
+      adc_select_input(1);
+      int vry = adc_read();
 
-    if (alarme_ligado) {
-        // Controle do alarme
-        switch (cor_alarme) {
-            case 0: // Vermelho
-                r = 1.0; g = 0.0; b = 0.0;
-                break;
-            case 1: // Verde
-                r = 0.0; g = 1.0; b = 0.0;
-                break;
-            case 2: // Azul
-                r = 0.0; g = 0.0; b = 1.0;
-                break;
+      // Navegação no menu principal
+      if (estado_menu == MENU_PRINCIPAL) {
+          if (vrx > 2400) { // Para baixo
+              menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
+          } else if (vrx < 1500) { // Para cima
+              menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
+          }
+      } else {
+          // Navegação nos submenus (cores e sons)
+          if (vrx > 2400) { // Para baixo
+              submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
+          } else if (vrx < 1500) { // Para cima
+              submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
+          }
+      }
+      exibir_menu();
+      sleep_ms(200); // Debounce
+  }
+
+      if (alarme_ligado){
+        funcionamento_on();
+
+        if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone
+          // Disparar alarme
+          while (alarme_ligado){
+            desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
+            acionar_buzzer(200);
+            sleep_ms(200);
+            desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
+            sleep_ms(200);
+          }
         }
-
-        if (som_alarme == 0) {
-            acionar_buzzer(200); // Som agudo
-        } else if (som_alarme == 1) {
-            acionar_buzzer(1000); // Som grave
-        }
-
-        desenho_pio(acender_leds, valor_led, pio, sm, r, g, b);
-        sleep_ms(200);
-        desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
+      }
+      
+      
+  
     }
-
-    sleep_ms(100); // Delay geral
-}
-}
+  }
   
