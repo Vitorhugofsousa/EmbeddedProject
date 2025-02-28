@@ -1,3 +1,4 @@
+//inclusão de todas as bibliotecas necessárias
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -31,8 +32,10 @@
 #define microfone 28 //pino do microfone
 
 // Variáveis globais
+int menu_selecionado = 0;
+int submenu_selecionado = 0;
+enum {MENU_PRINCIPAL, MENU_COR, MENU_SOM} estado_menu = MENU_PRINCIPAL;
 volatile bool alarme_ligado = false;
-
 int cor_alarme = 0; // 0: vermelho, 1: verde, 2: azul
 int som_alarme = 0; // 0: agudo, 1: grave
 uint actual_time = 0;
@@ -69,6 +72,7 @@ void desenho_pio(double *desenho, uint32_t valor_led, PIO pio, uint sm, double r
   };
 }
 
+// Função para acionar o buzzer com um tom agudo
 void acionar_buzzer(int interval){
   gpio_set_function(gpio_buzzer, GPIO_FUNC_PWM);      // Configura pino como saída PWM
     uint slice_num = pwm_gpio_to_slice_num(gpio_buzzer); // Obter o slice do PWM
@@ -79,6 +83,7 @@ void acionar_buzzer(int interval){
     sleep_ms(interval);                                    // Manter o som pelo intervalo
     pwm_set_enabled(slice_num, false);                 // Desativar o PWM  
 }
+// Função para acionar o buzzer com um tom grave
 void acionar_buzzer2(int interval){
   gpio_set_function(gpio_buzzer, GPIO_FUNC_PWM);      // Configura pino como saída PWM
     uint slice_num = pwm_gpio_to_slice_num(gpio_buzzer); // Obter o slice do PWM
@@ -104,7 +109,7 @@ void exibir_mensagem(const char *mensagem) {
 }
 
 
-// Função de callback para os botões (interrupção)
+// Função de callback para o botão A (interrupção)
 void callback_abtn(uint gpio, uint32_t events) {
   uint time = to_ms_since_boot(get_absolute_time());
   if (time - actual_time > 300) { //DEBOUNCE: aplicado em todos os botões
@@ -118,41 +123,31 @@ void callback_abtn(uint gpio, uint32_t events) {
   
 }
 
-int ssd1306_get_string_width(ssd1306_t *display, const char *str) {
-  int width = 8;
-  for (size_t i = 0; i < strlen(str); i++) {
-      // Assuming each character is 8 pixels wide.  Adjust if your font is different.
-      width += 8;  
-  }
-  return width;
-}
-
-// Estruturas dos menus
+// Estruturas dos menus de personalizacao do alarme
 const char *menu_principal[] = {
   "COR DO ALARME",
   "SOM DO AlARME"
 };
-
 const char *menu_cores[] = {
   "VERMELHO",
   "VERDE",
   "AZUL"
 };
-
 const char *menu_sons[] = {
   "AGUDO",
   "GRAVE"
 };
 
-int menu_selecionado = 0;
-int submenu_selecionado = 0;
-enum {MENU_PRINCIPAL, MENU_COR, MENU_SOM} estado_menu = MENU_PRINCIPAL;
-
+// Função para exibir o menu no display
 void exibir_menu() {
   ssd1306_fill(&display, false);
   const char **menu_atual; // Ponteiro para o array de strings do menu atual
   int tamanho_menu;
+  char linha[20];
+  int y_offset = 5; // Ajuste a posição vertical inicial
+  int x_offset = (128 - (strlen(linha) * 54)) / 2; // Centraliza a string
 
+  // Determina qual menu exibir com base no estado atual
   switch (estado_menu) {
       case MENU_PRINCIPAL:
           menu_atual = menu_principal;
@@ -168,9 +163,7 @@ void exibir_menu() {
           break;
   }
 
-  char linha[20];
-  int y_offset = 5; // Ajuste a posição vertical inicial
-  int x_offset = (128 - (strlen(linha) * 54)) / 2; // Centraliza a string
+
   for (int i = 0; i < tamanho_menu; i++) {
     if (i == (estado_menu == MENU_PRINCIPAL ? menu_selecionado : submenu_selecionado)) {
       sprintf(linha, "%s", menu_atual[i]);
@@ -183,25 +176,24 @@ void exibir_menu() {
     x_offset += 0;
     y_offset += 15;
     }
-
     ssd1306_send_data(&display);
 }
 
-
+// Função para personalizar a cor do alarme
 void configurar_cor() {
   estado_menu = MENU_COR;
   submenu_selecionado = 0;
   exibir_menu();
 }
 
+// Função para personalizar o som do alarme
 void configurar_som() {
   estado_menu = MENU_SOM;
   submenu_selecionado = 0;
   exibir_menu();
 }
 
-
-
+// Função para ligar o led de indicação de funcionamento do sistema de alarme
 void funcionamento_on() {
   ssd1306_fill(&display, false);
 ssd1306_send_data(&display);
@@ -211,27 +203,28 @@ gpio_put(LED_PIN_GREEN,false);
 sleep_ms(2000);
 }
 
+// Arrays para controlar o estado dos LEDs da matriz
+//apagar
 double apagar_leds[25] = {0.0, 0.0, 0.0, 0.0, 0.0, // Apagar LEDs da matriz
     0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0};
-
+//acender
 double acender_leds[25] = {1.0, 1.0, 1.0, 1.0, 1.0, // Acender LEDs da matriz
     1.0, 1.0, 1.0, 1.0, 1.0,
     1.0, 1.0, 1.0, 1.0, 1.0,
     1.0, 1.0, 1.0, 1.0, 1.0,
     1.0, 1.0, 1.0, 1.0, 1.0};    
 
-
+//função principal
 int main(){
   PIO pio = pio0;
   bool frequenciaClock;
   uint16_t i;
   uint valor_led;
   float r = 0.0, b = 0.0, g = 0.0;
-  const uint limiar_1 = 2000;     // Limiar para o LED vermelho
-  const uint limiar_2 = 2400;    // Limiar para o LED azul
+
 
  // Inicialização
  stdio_init_all();
@@ -262,9 +255,9 @@ int main(){
     adc_gpio_init(VRY_PIN); 
     gpio_init(SW_PIN);
 
+    gpio_init(matriz); //inicia a matriz de leds
+    gpio_set_dir(matriz, GPIO_OUT); //define a matriz de leds como saida
     frequenciaClock = set_sys_clock_khz(128000, false); // frequência de clock
-    gpio_init(matriz);
-    gpio_set_dir(matriz, GPIO_OUT);
 
     
     //inicialização a comunição I2C
@@ -286,51 +279,51 @@ int main(){
     ssd1306_fill(&display, false);
     ssd1306_send_data(&display);
     
+    //inicialização do microfone e o adc
     adc_init();
     adc_gpio_init(microfone);
 
   
   exibir_menu();
-  gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
-  gpio_set_irq_enabled_with_callback(BOTAO_B, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
-  gpio_set_irq_enabled_with_callback(SW_PIN, GPIO_IRQ_EDGE_FALL, true, &callback_abtn);
+  gpio_set_irq_enabled_with_callback(BOTAO_A, GPIO_IRQ_EDGE_FALL, true, &callback_abtn); //callback botao a
     
   // configurações da PIO
   uint offset = pio_add_program(pio, &pio_matrix_program);
   uint sm = pio_claim_unused_sm(pio, true);
   pio_matrix_program_init(pio, sm, offset, matriz);
   
-  const uint amostras_por_segundo = 8000; // Frequência de amostragem (8 kHz)
-  uint64_t intervalo_us = 1000000 / amostras_por_segundo;
-    
+  //loop principal
     while (true){
+      // Lógica para selecionar opções do menu com o botão B
       if (!alarme_ligado && !gpio_get(BOTAO_B)) {
-        printf("Selecionando opção");
+        printf("Opção Selecionada");
         switch (estado_menu) {
             case MENU_PRINCIPAL:
                 switch (menu_selecionado) {
-                    case 0: // Cor do Alarme
+                    case 0: // Menu Cor do Alarme
                         estado_menu = MENU_COR;
                         break;
-                    case 1: // Som do Alarme
+                    case 1: // Menu Som do Alarme
                         estado_menu = MENU_SOM;
                         break;
                 }
                 break;
             case MENU_COR:
-                // Lógica para selecionar a cor (ex: cor_alarme = submenu_selecionado;)
+                // Lógica para selecionar a cor 
                 cor_alarme = submenu_selecionado;
                 estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
                 break;
             case MENU_SOM:
-                // Lógica para selecionar o som (ex: som_alarme = submenu_selecionado;)
+                // Lógica para selecionar o som 
                 som_alarme = submenu_selecionado;
                 estado_menu = MENU_PRINCIPAL; // Volta para o menu principal após selecionar
                 break;
         }
-        exibir_menu();
+        exibir_menu(); // Exibe o menu atual
         sleep_ms(200); // Debounce
     }
+
+    // Lógica para voltar ao menu principal com o botão SW
     if (!alarme_ligado && !gpio_get(SW_PIN)) {
       printf("Retrocendendo");
       switch (estado_menu) {
@@ -342,40 +335,42 @@ int main(){
       exibir_menu();
       sleep_ms(200); // Debounce
   }
-    // Controle via joystick (com alarme desligado)
+    // Controla o menu através do joystick 
     if (!alarme_ligado) {
       // Ler posição do joystick
       adc_select_input(0);
-      int vrx = adc_read();
-      uint16_t vrx_inverter = 4095 - vrx;
+      int vry = adc_read();
+      uint16_t vry_inverter = 4095 - vry; //inverte a leitura do joystick para transmitir a leirura correta
 
 
       // Navegação no menu principal
       if (estado_menu == MENU_PRINCIPAL) {
-          if (vrx_inverter > 2400) { // Para baixo
+          if (vry_inverter > 2400) { // Para baixo
               menu_selecionado = (menu_selecionado + 1) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
-          } else if (vrx_inverter < 1000) { // Para cima
+          } else if (vry_inverter < 1000) { // Para cima
               menu_selecionado = (menu_selecionado - 1 + sizeof(menu_principal) / sizeof(menu_principal[0])) % (sizeof(menu_principal) / sizeof(menu_principal[0]));
           }
           sleep_ms(300); // Debounce
       } else {
           // Navegação nos submenus (cores e sons)
-          if (vrx_inverter> 2400) { // Para baixo
+          if (vry_inverter> 2400) { // Para baixo
               submenu_selecionado = (submenu_selecionado + 1) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
-          } else if (vrx_inverter < 1000) { // Para cima
+          } else if (vry_inverter < 1000) { // Para cima
               submenu_selecionado = (submenu_selecionado - 1 + (estado_menu == MENU_COR ? 3 : 2)) % (estado_menu == MENU_COR ? 3 : 2); // Ajustar o tamanho do menu
             }
             sleep_ms(300); // Debounce
       }
       exibir_menu();
   }
-
+// Lógica do alarme quando ativado
       if (alarme_ligado){
         funcionamento_on();
 
-        if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone
+        // Verifica se o microfone detectou som acima do limiar
+        if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone - valor reduzido para melhor captação
           // Disparar alarme
           while (alarme_ligado){
+            // Seleciona a cor do alarme com base na variável cor_alarme
             switch (cor_alarme){
             case 0:
             desenho_pio(acender_leds, valor_led, pio, sm, 1.0, 0.0, 0.0); // LEDs vermelhos
@@ -392,6 +387,7 @@ int main(){
               break;
             }
 
+            // Seleciona o som do alarme com base na variável som_alarme
             switch (som_alarme){
             case 0:
               acionar_buzzer(200);
@@ -405,16 +401,12 @@ int main(){
               acionar_buzzer(200);
               break;
             }
-
-            sleep_ms(200);
-            desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0);
-            sleep_ms(200);
+            sleep_ms(200); //tempo de amostragem
+            desenho_pio(apagar_leds, valor_led, pio, sm, 0.0, 0.0, 0.0); //desligar os leds para piscar
+            sleep_ms(200); //intervalo
           }
         }
       }
-      
-      
-  
     }
   }
   
