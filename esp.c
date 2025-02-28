@@ -367,7 +367,7 @@ int main(){
         funcionamento_on();
 
         // Verifica se o microfone detectou som acima do limiar
-        if (alarme_ligado && ler_microfone() > 2000) { // Limiar de sensibilidade do microfone - valor reduzido para melhor captação
+        if (alarme_ligado && ler_microfone() > 1700) { // Limiar de sensibilidade do microfone - valor reduzido para melhor captação
           // Disparar alarme
           while (alarme_ligado){
             // Seleciona a cor do alarme com base na variável cor_alarme
