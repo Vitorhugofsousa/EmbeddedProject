@@ -38,6 +38,9 @@ O objetivo deste projeto é criar um sistema de alarme residencial simples e efi
 6.  **Ative o alarme:** Pressione o botão para ativar o alarme.
 7.  **Teste o alarme:** Produza um som próximo ao microfone para testar o acionamento do alarme.
 
+ #### Verifique o vídeo abaixo listado no youtube para conferir o projeto
+ Clique __[aqui](https://youtu.be/46o0XIC7aek)__
+
 ## Esquema de Ligação
 
 <img src="Diagrama.jpg">
