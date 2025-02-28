@@ -25,6 +25,10 @@ O objetivo deste projeto é criar um sistema de alarme residencial simples e efi
 * Joystick
 * Botões
 
+## Esquema de Ligação
+
+<img src="Diagrama.jpg">
+
 ## Como Utilizar
 
 1.  **Clone o repositório:**
@@ -38,20 +42,15 @@ O objetivo deste projeto é criar um sistema de alarme residencial simples e efi
 6.  **Ative o alarme:** Pressione o botão para ativar o alarme.
 7.  **Teste o alarme:** Produza um som próximo ao microfone para testar o acionamento do alarme.
 
- #### Verifique o vídeo abaixo listado no youtube para conferir o projeto
- Clique __[aqui](https://youtu.be/46o0XIC7aek)__
+ #### Verifique o vídeo abaixo listado no YouTube para conferir o projeto
+  __[Clique Aqui](https://youtu.be/46o0XIC7aek)__
 
-## Esquema de Ligação
-
-<img src="Diagrama.jpg">
 
 ## Bibliotecas Utilizadas
 
 * pico-sdk
 * ssd1306.h
 * esp.pio.h
-
-
 
 ## Contribuições
 <img src="u7c1_banner.png">
